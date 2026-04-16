@@ -4,7 +4,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+import time
 
 from app.ai_client import get_client
 from app.config import get_settings
@@ -93,9 +95,19 @@ def seed_data(db: Session) -> None:
 
 @app.on_event("startup")
 def on_startup() -> None:
-    init_db()
-    with SessionLocal() as db:
-        seed_data(db)
+    last_error: Exception | None = None
+    for attempt in range(10):
+        try:
+            init_db()
+            with SessionLocal() as db:
+                seed_data(db)
+            return
+        except OperationalError as error:
+            last_error = error
+            time.sleep(2)
+
+    if last_error is not None:
+        raise last_error
 
 
 def get_game_state(db: Session) -> dict:
