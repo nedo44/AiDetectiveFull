@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>{{ app_title }}</title>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-4 md:p-8">
+    <header class="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-sm uppercase tracking-[0.3em] text-amber-300/80">Interaktivní webová detektivka</p>
+          <h1 class="mt-2 text-3xl font-semibold md:text-5xl">Kurim Mystery</h1>
+        </div>
+        <button
+          id="victim-info-btn"
+          type="button"
+          class="rounded-2xl border border-amber-300/50 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20"
+        >
+          O oběti
+        </button>
+      </div>
+    </header>
+
+    <main class="grid flex-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <aside class="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-xl shadow-black/20">
+        <h2 class="text-lg font-semibold">Podezřelí</h2>
+        <div id="character-list" class="mt-4 space-y-3">
+          {% for character in characters %}
+          <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+            <button
+              class="character-button w-full rounded-xl text-left transition hover:text-amber-200"
+              data-suspect-id="{{ character.suspect_id }}"
+              data-suspect-name="{{ character.name }}"
+              data-description="{{ character.description }}"
+              {% if character.suspect_id == active_suspect_id %}aria-pressed="true"{% else %}aria-pressed="false"{% endif %}
+            >
+              <div class="flex items-center justify-between gap-3">
+                <p class="text-base font-medium">{{ character.name }}</p>
+                <span class="rounded-full bg-amber-300/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-amber-200">výslech</span>
+              </div>
+            </button>
+            <button
+              class="profile-button mt-3 rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-sm text-slate-200 transition hover:border-amber-300/50 hover:text-amber-200"
+              data-suspect-id="{{ character.suspect_id }}"
+              data-suspect-name="{{ character.name }}"
+              type="button"
+            >
+              Profil postavy
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+      </aside>
+
+      <section class="flex min-h-[70vh] flex-col rounded-3xl border border-white/10 bg-white/5 shadow-xl shadow-black/20">
+        <div class="border-b border-white/10 p-5">
+          <p class="text-sm uppercase tracking-[0.25em] text-amber-300/80">Výslechová místnost</p>
+          <h2 id="active-character-name" class="mt-1 text-2xl font-semibold">Vyber postavu</h2>
+        </div>
+
+        <div id="chat-log" class="flex-1 space-y-4 overflow-y-auto p-5"></div>
+
+        <form id="chat-form" class="border-t border-white/10 p-5">
+          <input type="hidden" id="suspect-id" name="suspect_id" value="{{ active_suspect_id or '' }}">
+          <label class="mb-2 block text-sm text-slate-300" for="message">Otázka pro postavu</label>
+          <div class="flex flex-col gap-3 md:flex-row">
+            <input
+              id="message"
+              name="message"
+              autocomplete="off"
+              class="flex-1 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-amber-300/60"
+              placeholder="Napiš otázku česky..."
+            >
+            <button class="rounded-2xl bg-amber-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-amber-200" type="submit">Odeslat</button>
+          </div>
+          <p id="status" class="mt-3 min-h-6 text-sm text-slate-400"></p>
+        </form>
+
+        <section class="border-t border-white/10 p-5">
+          <h3 class="text-lg font-semibold">Vznést obvinění</h3>
+          <p class="mt-1 text-sm text-slate-400">Vyber jednoho podezřelého. Rozsudek je finální a uloží se do databáze.</p>
+          <div class="mt-4 flex flex-wrap gap-3" id="verdict-buttons">
+            {% for character in characters %}
+            <button
+              class="verdict-button rounded-xl border border-red-300/30 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/20"
+              type="button"
+              data-suspect-name="{{ character.name }}"
+            >
+              Obvinit: {{ character.name }}
+            </button>
+            {% endfor %}
+          </div>
+          <p id="verdict-status" class="mt-4 min-h-6 text-sm text-slate-300"></p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="profile-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 p-4">
+    <div class="w-full max-w-xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
+      <div class="flex items-start justify-between gap-4">
+        <h3 id="profile-modal-title" class="text-2xl font-semibold text-amber-200">Profil postavy</h3>
+        <button data-close-modal="profile-modal" type="button" class="rounded-xl border border-white/20 px-3 py-2 text-sm text-slate-200 hover:border-amber-300">Zavřít</button>
+      </div>
+      <p id="profile-modal-content" class="mt-4 text-sm leading-7 text-slate-200"></p>
+    </div>
+  </div>
+
+  <div id="victim-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 p-4">
+    <div class="w-full max-w-2xl rounded-3xl border border-red-300/30 bg-slate-900 p-6 shadow-2xl">
+      <div class="flex items-start justify-between gap-4">
+        <h3 class="text-2xl font-semibold text-red-200">O oběti: Viktor Černý</h3>
+        <button data-close-modal="victim-modal" type="button" class="rounded-xl border border-white/20 px-3 py-2 text-sm text-slate-200 hover:border-red-300">Zavřít</button>
+      </div>
+      <div class="mt-4 space-y-3 text-sm leading-7 text-slate-200">
+        <p>Viktor Černý byl CEO startupu Nexus AI. Byl charismatický a tvrdý manažer, který firmu dotáhl na vrchol.</p>
+        <p>V noci před vraždou byl nalezen mrtvý v serverovně, uškrcen ethernetovým kabelem.</p>
+        <p>Krátce před smrtí oznámil plán prodat firmu velké korporaci a po prodeji propustit většinu týmu.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="verdict-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-950/95 p-4">
+    <div id="verdict-panel" class="w-full max-w-4xl rounded-3xl border p-8 text-center shadow-2xl md:p-12">
+      <p id="verdict-badge" class="text-sm uppercase tracking-[0.25em]"></p>
+      <h3 id="verdict-title" class="mt-4 text-4xl font-bold md:text-6xl"></h3>
+      <p id="verdict-text" class="mx-auto mt-6 max-w-3xl text-base leading-8 md:text-xl"></p>
+      <button data-close-modal="verdict-modal" type="button" class="mt-10 rounded-2xl border px-5 py-3 text-sm font-semibold">Pokračovat ve hře</button>
+    </div>
+  </div>
+
+  <script>
+    const characterButtons = Array.from(document.querySelectorAll('.character-button'));
+    const profileButtons = Array.from(document.querySelectorAll('.profile-button'));
+    const verdictButtons = Array.from(document.querySelectorAll('.verdict-button'));
+    const chatLog = document.getElementById('chat-log');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message');
+    const suspectIdInput = document.getElementById('suspect-id');
+    const activeCharacterName = document.getElementById('active-character-name');
+    const statusLine = document.getElementById('status');
+    const verdictStatus = document.getElementById('verdict-status');
+    const victimInfoBtn = document.getElementById('victim-info-btn');
+
+    const profileModal = document.getElementById('profile-modal');
+    const profileModalTitle = document.getElementById('profile-modal-title');
+    const profileModalContent = document.getElementById('profile-modal-content');
+    const victimModal = document.getElementById('victim-modal');
+    const verdictModal = document.getElementById('verdict-modal');
+    const verdictPanel = document.getElementById('verdict-panel');
+    const verdictBadge = document.getElementById('verdict-badge');
+    const verdictTitle = document.getElementById('verdict-title');
+    const verdictText = document.getElementById('verdict-text');
+
+    let currentSuspectId = suspectIdInput.value || null;
+    let typingIndicatorElement = null;
+
+    function setStatus(text) {
+      statusLine.textContent = text;
+    }
+
+    function clearChat() {
+      chatLog.innerHTML = '';
+    }
+
+    function appendMessage(sender, content) {
+      const wrapper = document.createElement('div');
+      if (sender === 'final_verdict') {
+        wrapper.className = 'flex justify-center';
+      } else {
+        wrapper.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+      }
+
+      const bubble = document.createElement('div');
+      if (sender === 'user') {
+        bubble.className = 'max-w-[85%] rounded-3xl bg-amber-300 px-4 py-3 text-sm leading-6 text-slate-950';
+      } else if (sender === 'final_verdict') {
+        bubble.className = 'max-w-[95%] rounded-3xl border border-fuchsia-300/40 bg-fuchsia-500/15 px-4 py-3 text-sm leading-6 text-fuchsia-100';
+      } else {
+        bubble.className = 'max-w-[85%] rounded-3xl border border-white/10 bg-slate-900 px-4 py-3 text-sm leading-6 text-slate-100';
+      }
+      bubble.textContent = content;
+
+      wrapper.appendChild(bubble);
+      chatLog.appendChild(wrapper);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function showTypingIndicator(name) {
+      removeTypingIndicator();
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex justify-start';
+      wrapper.id = 'typing-indicator';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'max-w-[85%] rounded-3xl border border-white/10 bg-slate-900 px-4 py-3 text-sm leading-6 text-slate-300 animate-pulse';
+      bubble.textContent = `${name} píše...`;
+
+      wrapper.appendChild(bubble);
+      chatLog.appendChild(wrapper);
+      chatLog.scrollTop = chatLog.scrollHeight;
+      typingIndicatorElement = wrapper;
+    }
+
+    function removeTypingIndicator() {
+      if (typingIndicatorElement && typingIndicatorElement.parentNode) {
+        typingIndicatorElement.parentNode.removeChild(typingIndicatorElement);
+      }
+      typingIndicatorElement = null;
+    }
+
+    function openModal(modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal(modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      if (![profileModal, victimModal, verdictModal].some((item) => !item.classList.contains('hidden'))) {
+        document.body.classList.remove('overflow-hidden');
+      }
+    }
+
+    function showProfileModal(name, description) {
+      profileModalTitle.textContent = `Profil: ${name}`;
+      profileModalContent.textContent = description;
+      openModal(profileModal);
+    }
+
+    async function loadHistory(suspectId) {
+      if (!suspectId) return;
+      setStatus('Načítám historii...');
+      const response = await fetch(`/api/history/${suspectId}`);
+      if (!response.ok) {
+        setStatus('Nepodařilo se načíst historii.');
+        return;
+      }
+
+      const data = await response.json();
+      clearChat();
+      activeCharacterName.textContent = data.character.name;
+      data.messages.forEach((msg) => appendMessage(msg.sender, msg.content));
+      setStatus('Historie načtena.');
+    }
+
+    function setActiveSuspect(button) {
+      characterButtons.forEach((btn) => btn.setAttribute('aria-pressed', 'false'));
+      button.setAttribute('aria-pressed', 'true');
+
+      currentSuspectId = button.dataset.suspectId;
+      suspectIdInput.value = currentSuspectId;
+      activeCharacterName.textContent = button.dataset.suspectName;
+      loadHistory(currentSuspectId);
+    }
+
+    characterButtons.forEach((button) => {
+      button.addEventListener('click', () => setActiveSuspect(button));
+    });
+
+    profileButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const suspectId = button.dataset.suspectId;
+        const response = await fetch(`/api/profile/${suspectId}`);
+        if (!response.ok) {
+          setStatus('Profil se nepodařilo načíst.');
+          return;
+        }
+        const data = await response.json();
+        showProfileModal(data.name, data.description);
+      });
+    });
+
+    victimInfoBtn.addEventListener('click', () => {
+      openModal(victimModal);
+    });
+
+    document.querySelectorAll('[data-close-modal]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const modalId = button.getAttribute('data-close-modal');
+        const modal = document.getElementById(modalId);
+        if (modal) {
+          closeModal(modal);
+        }
+      });
+    });
+
+    [profileModal, victimModal, verdictModal].forEach((modal) => {
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeModal(modal);
+        }
+      });
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      [profileModal, victimModal, verdictModal].forEach((modal) => {
+        if (!modal.classList.contains('hidden')) {
+          closeModal(modal);
+        }
+      });
+    });
+
+    chatForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const message = messageInput.value.trim();
+
+      if (!currentSuspectId) {
+        setStatus('Nejdřív vyber postavu.');
+        return;
+      }
+      if (!message) {
+        setStatus('Napiš prosím otázku.');
+        return;
+      }
+
+      appendMessage('user', message);
+      messageInput.value = '';
+
+      const activeButton = characterButtons.find((btn) => btn.dataset.suspectId === currentSuspectId);
+      const activeName = activeButton ? activeButton.dataset.suspectName : 'Podezřelý';
+      showTypingIndicator(activeName);
+      setStatus('Čekám na odpověď AI...');
+
+      const formData = new FormData();
+      formData.append('suspect_id', currentSuspectId);
+      formData.append('message', message);
+
+      let response;
+      try {
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          body: formData,
+        });
+      } catch (error) {
+        removeTypingIndicator();
+        appendMessage('assistant', 'Nepodařilo se spojit se serverem.');
+        setStatus('Nepodařilo se spojit se serverem.');
+        return;
+      }
+
+      removeTypingIndicator();
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        appendMessage('assistant', error?.detail || 'Nepodařilo se získat odpověď.');
+        setStatus(error?.detail || 'Nepodařilo se získat odpověď.');
+        return;
+      }
+
+      const data = await response.json();
+      appendMessage('assistant', data.assistantMessage.content);
+      setStatus(data.fallbackUsed ? 'AI služba nebyla dostupná, zobrazena náhradní odpověď.' : 'Odpověď uložena.');
+    });
+
+    verdictButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const suspectName = button.dataset.suspectName;
+        verdictStatus.textContent = `Vyhodnocuji obvinění: ${suspectName}...`;
+
+        const response = await fetch('/verdict', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ accused_name: suspectName }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          verdictStatus.textContent = error?.detail || 'Rozsudek se nepodařilo vyhodnotit.';
+          return;
+        }
+
+        const data = await response.json();
+        verdictStatus.textContent = data.won ? 'Rozsudek potvrzen: správné obvinění.' : 'Rozsudek potvrzen: špatné obvinění.';
+
+        if (data.won) {
+          verdictPanel.className = 'w-full max-w-4xl rounded-3xl border border-emerald-300/50 bg-emerald-500/10 p-8 text-center shadow-2xl md:p-12';
+          verdictBadge.className = 'text-sm uppercase tracking-[0.25em] text-emerald-200';
+          verdictTitle.className = 'mt-4 text-4xl font-bold text-emerald-100 md:text-6xl';
+          verdictText.className = 'mx-auto mt-6 max-w-3xl text-base leading-8 text-emerald-50 md:text-xl';
+          verdictBadge.textContent = 'Správné obvinění';
+          verdictTitle.textContent = 'Vítězství';
+        } else {
+          verdictPanel.className = 'w-full max-w-4xl rounded-3xl border border-red-300/50 bg-red-500/10 p-8 text-center shadow-2xl md:p-12';
+          verdictBadge.className = 'text-sm uppercase tracking-[0.25em] text-red-200';
+          verdictTitle.className = 'mt-4 text-4xl font-bold text-red-100 md:text-6xl';
+          verdictText.className = 'mx-auto mt-6 max-w-3xl text-base leading-8 text-red-50 md:text-xl';
+          verdictBadge.textContent = 'Chybné obvinění';
+          verdictTitle.textContent = 'Prohra';
+        }
+
+        verdictText.textContent = data.message;
+        openModal(verdictModal);
+        appendMessage('final_verdict', data.message);
+      });
+    });
+
+    if (currentSuspectId) {
+      const first = characterButtons.find((button) => button.dataset.suspectId === currentSuspectId);
+      if (first) {
+        first.setAttribute('aria-pressed', 'true');
+        activeCharacterName.textContent = first.dataset.suspectName;
+      }
+      loadHistory(currentSuspectId);
+    }
+  </script>
+</body>
+</html>

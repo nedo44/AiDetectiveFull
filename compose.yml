@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kurim_mystery
+      POSTGRES_USER: kurim
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kurim_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kurim -d kurim_mystery"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://kurim:${POSTGRES_PASSWORD:-kurim_password}@db:5432/kurim_mystery
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://kurim.ithope.eu/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gemma3:27b}
+      APP_TITLE: Kurim Mystery
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:
