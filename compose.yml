@@ -4,8 +4,8 @@ services:
     environment:
       POSTGRES_DB: kurim_mystery
       POSTGRES_USER: kurim
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kurim_password}
-      PGDATA: /data/pgdata
+      POSTGRES_PASSWORD: kurim_password
+      PGDATA: /data/pgdata_v2
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kurim -d kurim_mystery"]
       interval: 10s
@@ -17,7 +17,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql+psycopg://kurim:${POSTGRES_PASSWORD:-kurim_password}@db:5432/kurim_mystery
+      DATABASE_URL: postgresql+psycopg://kurim:kurim_password@db:5432/kurim_mystery
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://kurim.ithope.eu/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-gemma3:27b}
