@@ -22,7 +22,7 @@ services:
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://kurim.ithope.eu/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-gemma3:27b}
       APP_TITLE: Kurim Mystery
-      PORT: ${PORT:-8000}
+      PORT: "8000"
     depends_on:
       db:
         condition: service_healthy
